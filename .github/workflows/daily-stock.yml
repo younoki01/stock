@@ -18,6 +18,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Install Playwright browser
+        run: playwright install chromium --with-deps
+
       - name: Fetch and post to Slack
         env:
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}

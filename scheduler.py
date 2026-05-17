@@ -1,5 +1,5 @@
 """
-毎朝 08:30 に X からホット株情報を取得して Slack に投稿する。
+毎朝 08:30 に X + 国内株サイトからホット株情報を取得して Slack に投稿する。
 
 使い方:
   python scheduler.py          # スケジューラーを起動（常駐）
@@ -12,6 +12,7 @@ import schedule
 from dotenv import load_dotenv
 from src.fetcher import fetch_hot_stocks
 from src.slack import post_to_slack
+from src.scrapers.aggregator import fetch_all_rankings, format_rankings
 
 load_dotenv()
 
@@ -19,13 +20,19 @@ POST_TIME = "08:30"
 
 
 def job():
-    print(f"[実行] X からホット株情報を取得中...")
-    try:
-        result = fetch_hot_stocks(days_back=1)
-        post_to_slack(result["text"], result["citations"])
-        print("[完了] Slack に投稿しました")
-    except Exception as e:
-        print(f"[エラー] {e}")
+    print("[実行] データ取得中...")
+
+    # X (Grok) から注目銘柄
+    grok_result = fetch_hot_stocks(days_back=1)
+    print("[完了] Grok x_search 取得")
+
+    # 国内サイトから値上がりランキング
+    rankings = fetch_all_rankings(top_n=10)
+    rankings_text = format_rankings(rankings)
+    print("[完了] 国内サイトスクレイピング完了")
+
+    post_to_slack(grok_result["text"], grok_result["citations"], rankings_text)
+    print("[完了] Slack に投稿しました")
 
 
 def main():
