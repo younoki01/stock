@@ -7,16 +7,29 @@
 """
 
 import argparse
+import json
 import time
+from pathlib import Path
+
 import schedule
 from dotenv import load_dotenv
+
 from src.fetcher import fetch_hot_stocks
-from src.slack import post_to_slack
+from src.analyzer import analyze_stock
 from src.scrapers.aggregator import fetch_all_rankings, format_rankings
+from src.scrapers.stock_detail import fetch_detail
+from src.slack import post_to_slack, build_watchlist_blocks
 
 load_dotenv()
 
 POST_TIME = "08:30"
+WATCHLIST_PATH = Path(__file__).parent / "watchlist.json"
+
+
+def load_watchlist() -> list[str]:
+    if not WATCHLIST_PATH.exists():
+        return []
+    return json.loads(WATCHLIST_PATH.read_text(encoding="utf-8"))
 
 
 def job():
@@ -31,7 +44,20 @@ def job():
     rankings_text = format_rankings(rankings)
     print("[完了] 国内サイトスクレイピング完了")
 
-    post_to_slack(grok_result["text"], grok_result["citations"], rankings_text)
+    # ウォッチリスト個別分析
+    watchlist = load_watchlist()
+    watchlist_blocks = []
+    if watchlist:
+        analyses = []
+        for code in watchlist:
+            print(f"[分析中] {code}")
+            detail = fetch_detail(code)
+            result = analyze_stock(code, days_back=1)
+            analyses.append((detail, result))
+        watchlist_blocks = build_watchlist_blocks(analyses)
+        print("[完了] ウォッチリスト分析完了")
+
+    post_to_slack(grok_result["text"], grok_result["citations"], rankings_text, watchlist_blocks)
     print("[完了] Slack に投稿しました")
 
 
