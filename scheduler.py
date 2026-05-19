@@ -19,6 +19,7 @@ from src.analyzer import analyze_stock
 from src.scrapers.aggregator import fetch_all_rankings, format_rankings
 from src.scrapers.stock_detail import fetch_detail
 from src.slack import post_to_slack, build_watchlist_blocks
+from src.strategy import generate_strategy
 
 load_dotenv()
 
@@ -57,7 +58,11 @@ def job():
         watchlist_blocks = build_watchlist_blocks(analyses)
         print("[完了] ウォッチリスト分析完了")
 
-    post_to_slack(grok_result["text"], grok_result["citations"], rankings_text, watchlist_blocks)
+    # 100万円運用戦略
+    strategy_result = generate_strategy(grok_result["text"], rankings_text)
+    print("[完了] 100万円運用戦略生成完了")
+
+    post_to_slack(grok_result["text"], grok_result["citations"], rankings_text, watchlist_blocks, strategy_result["text"])
     print("[完了] Slack に投稿しました")
 
 
