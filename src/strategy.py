@@ -15,7 +15,9 @@ STRATEGY_PROMPT_TEMPLATE = """
 {rankings_text}
 
 ---
-このデータを踏まえ、手元に100万円あった場合の本日の運用戦略を提案してください。
+このデータを踏まえ、手元に{budget_label}あった場合の本日の運用戦略を提案してください。
+
+{budget_constraints}
 
 以下の形式で回答してください：
 
@@ -24,7 +26,7 @@ STRATEGY_PROMPT_TEMPLATE = """
 
 【ポートフォリオ案】
 | 銘柄コード／銘柄名 | 配分 | 予算 | 狙い |
-（最大5銘柄、合計100万円になるように配分）
+（{portfolio_rule}、合計{budget_label}になるように配分）
 
 【エントリーポイント】
 - 各銘柄の理想的な買いタイミングや価格帯
@@ -38,8 +40,25 @@ STRATEGY_PROMPT_TEMPLATE = """
 日本語で回答してください。
 """
 
+BUDGET_PRESETS = {
+    1_000_000: {
+        "label": "100万円",
+        "portfolio_rule": "最大5銘柄",
+        "constraints": "",
+    },
+    100_000: {
+        "label": "10万円",
+        "portfolio_rule": "最大3銘柄",
+        "constraints": (
+            "予算が小さいため、単元株（通常100株）での購入を想定してください。"
+            "1株あたりの株価が高くて単元未満の銘柄しか買えない場合は、"
+            "S株（単元未満株）対応である旨を明記するか、より低位株を選んでください。"
+        ),
+    },
+}
 
-def generate_strategy(hot_stocks_text: str, rankings_text: str, model: str = DEFAULT_MODEL) -> dict:
+
+def generate_strategy(hot_stocks_text: str, rankings_text: str, budget: int = 1_000_000, model: str = DEFAULT_MODEL) -> dict:
     api_key = os.environ.get("XAI_API_KEY")
     if not api_key:
         raise ValueError("XAI_API_KEY が設定されていません")
@@ -48,10 +67,14 @@ def generate_strategy(hot_stocks_text: str, rankings_text: str, model: str = DEF
     from_date = (today - timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
     to_date = today.strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    preset = BUDGET_PRESETS.get(budget, BUDGET_PRESETS[1_000_000])
     prompt = STRATEGY_PROMPT_TEMPLATE.format(
         today=today.strftime("%Y/%m/%d"),
         hot_stocks_text=hot_stocks_text or "（データなし）",
         rankings_text=rankings_text or "（データなし）",
+        budget_label=preset["label"],
+        portfolio_rule=preset["portfolio_rule"],
+        budget_constraints=preset["constraints"],
     )
 
     payload = {

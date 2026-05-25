@@ -2,7 +2,7 @@ name: Daily Hot Stock Alert
 
 on:
   schedule:
-    - cron: "30 23 * * *"  # 08:30 JST (UTC+9)
+    - cron: "30 22 * * *"  # 07:30 JST 起動 → ジョブ完了で約08:00 JST 到着 (UTC+9)
   workflow_dispatch:        # 手動実行ボタン
 
 jobs:

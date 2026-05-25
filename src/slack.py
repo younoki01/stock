@@ -11,7 +11,7 @@ def _webhook_post(blocks: list) -> None:
     response.raise_for_status()
 
 
-def post_to_slack(grok_text: str, citations: list, rankings_text: str = "", watchlist_blocks: list = None, strategy_text: str = "") -> None:
+def post_to_slack(grok_text: str, citations: list, rankings_text: str = "", watchlist_blocks: list = None, strategy_text: str = "", strategy_100k_text: str = "") -> None:
     date_str = datetime.now().strftime("%Y/%m/%d")
     blocks = [
         {
@@ -35,6 +35,13 @@ def post_to_slack(grok_text: str, citations: list, rankings_text: str = "", watc
             {"type": "divider"},
             {"type": "section", "text": {"type": "mrkdwn", "text": "*💴 100万円運用戦略*"}},
             {"type": "section", "text": {"type": "mrkdwn", "text": strategy_text}},
+        ]
+
+    if strategy_100k_text:
+        blocks += [
+            {"type": "divider"},
+            {"type": "section", "text": {"type": "mrkdwn", "text": "*🪙 10万円運用戦略*"}},
+            {"type": "section", "text": {"type": "mrkdwn", "text": strategy_100k_text}},
         ]
 
     if watchlist_blocks:

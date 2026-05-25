@@ -1,5 +1,5 @@
 """
-毎朝 08:30 に X + 国内株サイトからホット株情報を取得して Slack に投稿する。
+毎朝 08:00 に X + 国内株サイトからホット株情報を取得して Slack に投稿する。
 
 使い方:
   python scheduler.py          # スケジューラーを起動（常駐）
@@ -23,7 +23,7 @@ from src.strategy import generate_strategy
 
 load_dotenv()
 
-POST_TIME = "08:30"
+POST_TIME = "08:00"
 WATCHLIST_PATH = Path(__file__).parent / "watchlist.json"
 
 
@@ -59,10 +59,21 @@ def job():
         print("[完了] ウォッチリスト分析完了")
 
     # 100万円運用戦略
-    strategy_result = generate_strategy(grok_result["text"], rankings_text)
+    strategy_1m = generate_strategy(grok_result["text"], rankings_text, budget=1_000_000)
     print("[完了] 100万円運用戦略生成完了")
 
-    post_to_slack(grok_result["text"], grok_result["citations"], rankings_text, watchlist_blocks, strategy_result["text"])
+    # 10万円運用戦略
+    strategy_100k = generate_strategy(grok_result["text"], rankings_text, budget=100_000)
+    print("[完了] 10万円運用戦略生成完了")
+
+    post_to_slack(
+        grok_result["text"],
+        grok_result["citations"],
+        rankings_text,
+        watchlist_blocks,
+        strategy_1m["text"],
+        strategy_100k["text"],
+    )
     print("[完了] Slack に投稿しました")
 
 
