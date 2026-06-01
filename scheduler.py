@@ -14,6 +14,7 @@ from pathlib import Path
 import schedule
 from dotenv import load_dotenv
 
+from src.bubble import evaluate_bubble
 from src.fetcher import fetch_hot_stocks
 from src.analyzer import analyze_stock
 from src.scrapers.aggregator import fetch_all_rankings, format_rankings
@@ -66,6 +67,10 @@ def job():
     strategy_100k = generate_strategy(grok_result["text"], rankings_text, budget=100_000)
     print("[完了] 10万円運用戦略生成完了")
 
+    # バブル恐怖指数評価
+    bubble_result = evaluate_bubble(grok_result["text"], rankings_text)
+    print("[完了] バブル恐怖指数評価完了")
+
     post_to_slack(
         grok_result["text"],
         grok_result["citations"],
@@ -73,6 +78,7 @@ def job():
         watchlist_blocks,
         strategy_1m["text"],
         strategy_100k["text"],
+        bubble_result["text"],
     )
     print("[完了] Slack に投稿しました")
 
