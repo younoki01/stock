@@ -7,5 +7,6 @@ venv/
 .watcher_state.json
 radar_state.json
 picks_log.json
+stock_history.db
 logs/
 tmp_*.py

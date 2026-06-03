@@ -11,7 +11,7 @@ def _webhook_post(blocks: list) -> None:
     response.raise_for_status()
 
 
-def post_to_slack(grok_text: str, citations: list, rankings_text: str = "", watchlist_blocks: list = None, strategy_text: str = "", strategy_100k_text: str = "", bubble_text: str = "", accounts_text: str = "", accounts_citations: list = None, news_digest_text: str = "", radar_text: str = "") -> None:
+def post_to_slack(grok_text: str, citations: list, rankings_text: str = "", watchlist_blocks: list = None, strategy_text: str = "", strategy_100k_text: str = "", bubble_text: str = "", accounts_text: str = "", accounts_citations: list = None, news_digest_text: str = "", radar_text: str = "", disclosure_text: str = "") -> None:
     date_str = datetime.now().strftime("%Y/%m/%d")
     blocks = [
         {
@@ -29,6 +29,14 @@ def post_to_slack(grok_text: str, citations: list, rankings_text: str = "", watc
             {"type": "section", "text": {"type": "mrkdwn", "text": "*📊 国内サイト 値上がりランキング*"}},
             {"type": "section", "text": {"type": "mrkdwn", "text": rankings_text}},
         ]
+
+    if disclosure_text:
+        blocks += [
+            {"type": "divider"},
+            {"type": "section", "text": {"type": "mrkdwn", "text": "*📋 本日の重要な適時開示（TDnet）*"}},
+        ]
+        for chunk in _chunk_mrkdwn(disclosure_text, 2900):
+            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": chunk}})
 
     if news_digest_text:
         blocks += [

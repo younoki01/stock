@@ -15,12 +15,14 @@ from pathlib import Path
 import schedule
 from dotenv import load_dotenv
 
+from src import db
 from src.accounts import fetch_account_posts
 from src.bubble import evaluate_bubble
 from src.fetcher import fetch_hot_stocks
 from src.analyzer import analyze_stock
 from src.news_digest import CODE_RE, generate_digest
 from src.opportunity_radar import generate_radar
+from src.scrapers import tdnet
 from src.scrapers.aggregator import fetch_all_rankings, format_rankings
 from src.scrapers.stock_detail import fetch_detail
 from src.slack import post_to_slack, build_watchlist_blocks
@@ -80,6 +82,13 @@ def job(force_bubble: bool = False):
     rankings_text = format_rankings(rankings)
     print("[完了] 国内サイトスクレイピング完了")
 
+    # 適時開示（TDnet）から重要開示を抽出
+    disclosures = tdnet.fetch(limit=80)
+    material_disc = tdnet.material(disclosures)
+    disclosure_text = tdnet.format_for_slack(material_disc, limit=12)
+    db.save_disclosures(material_disc)
+    print(f"[完了] 適時開示（重要{len(material_disc)}件）")
+
     # 注視アカウント（@pelositracker, @realDonaldTrump）の株式関連投稿
     accounts_result = fetch_account_posts(days_back=1)
     print("[完了] 注視アカウント投稿取得")
@@ -92,8 +101,11 @@ def job(force_bubble: bool = False):
     # 有望株レーダー（上流シグナル＋材料→テーマ早期検知）。失敗してもレポートは継続
     radar_text = ""
     try:
-        radar_result = generate_radar(grok_result["text"], rankings_text, digest_result["news_by_code"])
+        radar_result = generate_radar(
+            grok_result["text"], rankings_text, digest_result["news_by_code"], disclosures=material_disc
+        )
         radar_text = radar_result["text"]
+        db.save_prices({c["code"]: c.get("px") for c in radar_result.get("candidates", [])})
         print(f"[完了] 有望株レーダー（テーマ{len(radar_result['themes'])}件）")
     except Exception as e:
         print(f"[警告] 有望株レーダー失敗（スキップ）: {e}")
@@ -136,6 +148,7 @@ def job(force_bubble: bool = False):
         accounts_citations=accounts_result["citations"],
         news_digest_text=digest_result["text"],
         radar_text=radar_text,
+        disclosure_text=disclosure_text,
     )
     print("[完了] Slack に投稿しました")
 

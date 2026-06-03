@@ -41,6 +41,9 @@ EXTRACT_PROMPT = """\
 【上流シグナル: TrendForce（メモリDRAM/NAND・HBM・半導体の業界動向）】
 {trendforce_block}
 
+【本日の重要な適時開示（TDnet・公式の早期材料）】
+{disclosure_block}
+
 【X注目銘柄】
 {hot_stocks_text}
 
@@ -101,7 +104,7 @@ SCORE_PROMPT = """\
 """
 
 
-def generate_radar(hot_stocks_text: str, rankings_text: str, news_by_code: dict, model: str = DEFAULT_MODEL) -> dict:
+def generate_radar(hot_stocks_text: str, rankings_text: str, news_by_code: dict, disclosures: list = None, model: str = DEFAULT_MODEL) -> dict:
     api_key = os.environ.get("XAI_API_KEY")
     if not api_key:
         raise ValueError("XAI_API_KEY が設定されていません")
@@ -110,10 +113,15 @@ def generate_radar(hot_stocks_text: str, rankings_text: str, news_by_code: dict,
     tf_items = trendforce.fetch(limit=15)
     tf_block = "\n".join(f"- [{it['tag']}] {it['title']}" for it in tf_items) or "（取得なし）"
     news_block = _format_news_block(news_by_code)
+    disclosure_block = "\n".join(
+        f"- {d.get('code','')} {d.get('name','')}［{d.get('category','')}］{d.get('title','')[:50]}"
+        for d in (disclosures or [])[:25]
+    ) or "（なし）"
 
     # 2. LLM-A: テーマ抽出
     extract_text = _call_llm(api_key, model, EXTRACT_PROMPT.format(
         trendforce_block=tf_block,
+        disclosure_block=disclosure_block,
         hot_stocks_text=hot_stocks_text or "（なし）",
         news_block=news_block or "（なし）",
         rankings_text=rankings_text or "（なし）",
