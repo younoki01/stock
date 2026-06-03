@@ -111,6 +111,47 @@ python scheduler.py          # 常駐（毎日08:00）
 
 ### 未処理・今後の候補
 - `build_cmd.py` は未コミット（使い捨てジェネレータのため保留）。
-- usage ロギング（各レスポンスのトークン数・検索ソース数を記録）→ コスト実測化。
 - 有望株レーダーの上流シグナル追加（価格.com 消費者価格など）。
 - L2フィードバックのテーマ別集計（現状は全体集計）。
+
+---
+
+## 2026-06-04 セッション（Tier1 分析基盤の強化）
+
+「コストはほぼ不変〜微減で分析の質を上げる」方針で Tier1 パッケージを実装。
+
+### 追加・変更
+1. **API使用量ロギング** (`src/usage_log.py`)
+   - 各xAIレスポンスの `usage`（input/output_tokens, **num_sources_used**, cost_in_usd_ticks）を
+     `logs/usage.jsonl` に記録。全API呼び出しに計装。
+   - `num_sources_used` 取得により **Live Searchコストを実測可能に**（従来は推定のみ）。
+   - 集計: `python -m src.usage_log`（日別・ラベル別・月換算）。
+2. **grok-3-mini 化**: `strategy` / `news_digest`（Live Search不使用の純トークン処理）を mini に。
+   品質重要箇所（レーダー等）は grok-3 を維持。
+3. **株価時系列＋テクニカル** (`src/market_data.py`, yfinance)
+   - RSI14 / MA25・75乖離 / 高値からの距離 / 5日・20日騰落 / 出来高倍率。JP(`コード.T`)・米国両対応。
+   - レーダーの裏付けに付与し、SCORE_PROMPT で**出遅れ度を実データ判定**。
+     RSI過熱・高値0%・急騰済みは「出遅れではない」と減点 →
+     **年初来高値データ欠如で過熱株を出遅れ誤判定する盲点を解消**（例: キオクシアが★★★→★）。
+   - L2フィードバックの現在値取得を株探→yfinanceに変更し堅牢化。
+4. **適時開示 TDnet** (`src/scrapers/tdnet.py`, yanoshin無料JSON)
+   - 上方修正/自社株買い/提携/受注等を重要判定（進捗報告・訂正のノイズ除外）。
+   - 日次レポートに『📋 本日の重要な適時開示』セクション追加＋レーダーの上流シグナルにも投入。
+5. **SQLite 履歴DB** (`src/db.py`)
+   - 重要開示と日次株価スナップショットを蓄積（`stock_history.db`、gitignore）。
+   - `price_on_or_after()` でバックテストの土台。接続は明示クローズ。
+
+### コスト影響
+mini化でトークン代が減り、新規（テクニカル/TDnet/DB）は全て**無料データ＋計算でAPI$0増**。
+→ 月額は据置〜微減のまま、分析が「LLMの感想」から「データ裏付け＋検証可能」へ。
+
+### コミット
+- `5da49ec` feat: API使用量ロギング＋戦略/ダイジェストをgrok-3-mini化
+- `a41f03f` feat: 株価時系列(yfinance)＋テクニカルをレーダーに統合
+- `b7198af` feat: 適時開示(TDnet)とSQLite履歴DBを追加
+
+### 確認方法
+```
+python -m src.usage_log   # API使用量・コスト集計
+python -m src.db          # 履歴DBの蓄積状況
+```
