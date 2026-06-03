@@ -18,7 +18,7 @@ from pathlib import Path
 
 import requests
 
-from src import usage_log
+from src import market_data, usage_log
 from src.scrapers import trendforce
 from src.scrapers.kabutan_detail import fetch as fetch_kabutan_detail
 
@@ -76,10 +76,13 @@ SCORE_PROMPT = """\
 {feedback_block}
 
 【評価軸】
-- 出遅れ度: 年初来高値に対する位置・直近騰落から「まだ上がり切っていないか」
+- 出遅れ度（テクニカル実データで判定。重要）:
+  ・RSI70以上 / 高値からの距離が0%付近 / 20日騰落が大きくプラス → 「過熱・天井圏」であり出遅れではない（強く減点）
+  ・RSI40〜55 / 高値から-15%以上下 / MA25乖離が小さい〜マイナス → 「出遅れ・押し目」（加点）
+  ・出来高倍率が高い → 既に急騰・動意づき済み（出遅れとは逆。注意）
 - テーマ強度: signal が高いテーマの銘柄を優先
-- 指標: 極端な割高(高PER/PBR)や明らかな仕手・低位煽りは減点
-- 懐疑: pump臭・既に織り込み済みは明記して減点
+- 指標: 極端な割高(高PER/PBR)は減点
+- 懐疑: pump臭・既に織り込み済み・仕手は明記して減点
 
 【出力の厳守事項】
 - 各銘柄の3つの箇条書きは、必ずその銘柄固有の“具体的な中身”で埋めること。
@@ -200,14 +203,15 @@ def _enrich(codes: list[str]) -> list[dict]:
         name = d.get("name", "")
         if name.startswith(code):  # 銘柄名先頭にコードが重複する場合は除去
             name = name[len(code):].strip()
+        tech = market_data.technicals(code)  # OHLCVベースのテクニカル（空dictの場合あり）
         out.append({
             "code": code,
             "name": name,
-            "price": d.get("price", ""),
             "per": d.get("per", ""),
             "pbr": d.get("pbr", ""),
-            "year_high": d.get("year_high", ""),
-            "year_low": d.get("year_low", ""),
+            "price": (tech.get("price") if tech else None) or d.get("price", ""),
+            "px": tech.get("price") if tech else None,  # 数値（フィードバックのリターン計算用）
+            "tech": tech,
         })
     return out
 
@@ -215,11 +219,17 @@ def _enrich(codes: list[str]) -> list[dict]:
 def _format_enriched(enriched: list[dict]) -> str:
     lines = []
     for e in enriched:
-        lines.append(
-            f"- {e['code']} {e['name']}: 株価{e['price'] or '-'} "
-            f"PER{e['per'] or '-'} PBR{e['pbr'] or '-'} "
-            f"年初来高{e['year_high'] or '-'}/安{e['year_low'] or '-'}"
-        )
+        t = e.get("tech") or {}
+        line = f"- {e['code']} {e['name']}: PER{e['per'] or '-'} PBR{e['pbr'] or '-'}"
+        if t:
+            line += (
+                f" ｜ 株価{t['price']} RSI{t.get('rsi14', '-')} "
+                f"MA25乖離{t.get('ma25_dev_pct', '-')}% 高値から{t.get('from_high_pct', '-')}% "
+                f"20日{t.get('ret_20d_pct', '-')}% 出来高{t.get('vol_spike', '-')}倍"
+            )
+        else:
+            line += f" ｜ 株価{e['price'] or '-'}（時系列取得不可）"
+        lines.append(line)
     return "\n".join(lines)
 
 
@@ -274,6 +284,7 @@ def _load_picks() -> list:
 
 def _log_picks(radar_text: str, enriched: list[dict]) -> None:
     price_map = {e["code"]: e["price"] for e in enriched}
+    px_map = {e["code"]: e.get("px") for e in enriched}
     name_map = {e["code"]: e["name"] for e in enriched}
     surfaced = []
     seen = set()
@@ -293,6 +304,7 @@ def _log_picks(radar_text: str, enriched: list[dict]) -> None:
             "code": c,
             "name": name_map.get(c, ""),
             "price": price_map.get(c, ""),
+            "px": px_map.get(c),
             "ret_pct": None,
         })
     try:
@@ -318,15 +330,12 @@ def _summarize_feedback() -> str:
             continue
         if age < MATURE_DAYS or evaluated_now >= MAX_EVAL_PER_RUN:
             continue
-        entry = _parse_price(p.get("price", ""))
+        entry = p.get("px") or _parse_price(p.get("price", ""))
         if not entry:
             p["ret_pct"] = 0.0  # 価格不明は中立で確定
             changed = True
             continue
-        try:
-            cur = _parse_price(fetch_kabutan_detail(p["code"]).get("price", ""))
-        except Exception:
-            cur = None
+        cur = market_data.current_price(p["code"])  # yfinanceの直近終値
         if cur:
             p["ret_pct"] = round((cur - entry) / entry * 100, 1)
             changed = True
