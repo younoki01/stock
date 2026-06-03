@@ -18,7 +18,8 @@ def fetch_detail(code: str) -> dict:
 
 
 def _is_jp(code: str) -> bool:
-    return bool(re.match(r"^\d{4}$", code))
+    # JP銘柄コード: 旧形式の4桁数字 or TSE新形式の5文字英数（先頭数字）
+    return bool(re.match(r"^[0-9][0-9A-Z]{3,4}$", code))
 
 
 def _find_text(soup, selectors: list) -> str:
