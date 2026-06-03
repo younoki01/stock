@@ -4,3 +4,8 @@ __pycache__/
 *.pyo
 .venv/
 venv/
+.watcher_state.json
+radar_state.json
+picks_log.json
+logs/
+tmp_*.py

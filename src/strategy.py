@@ -1,6 +1,6 @@
 import os
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 
 API_URL = "https://api.x.ai/v1/responses"
 DEFAULT_MODEL = "grok-3"
@@ -64,8 +64,6 @@ def generate_strategy(hot_stocks_text: str, rankings_text: str, budget: int = 1_
         raise ValueError("XAI_API_KEY が設定されていません")
 
     today = datetime.now()
-    from_date = (today - timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
-    to_date = today.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     preset = BUDGET_PRESETS.get(budget, BUDGET_PRESETS[1_000_000])
     prompt = STRATEGY_PROMPT_TEMPLATE.format(
@@ -77,10 +75,11 @@ def generate_strategy(hot_stocks_text: str, rankings_text: str, budget: int = 1_
         budget_constraints=preset["constraints"],
     )
 
+    # Live Search は使わない（注目銘柄・ランキングは既にプロンプトへ渡済み）。
+    # → 検索ソース課金が発生せず、純トークン代のみで済む。
     payload = {
         "model": model,
         "input": [{"role": "user", "content": prompt}],
-        "tools": [{"type": "x_search", "from_date": from_date, "to_date": to_date}],
     }
 
     response = requests.post(

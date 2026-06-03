@@ -11,7 +11,7 @@ def _webhook_post(blocks: list) -> None:
     response.raise_for_status()
 
 
-def post_to_slack(grok_text: str, citations: list, rankings_text: str = "", watchlist_blocks: list = None, strategy_text: str = "", strategy_100k_text: str = "", bubble_text: str = "") -> None:
+def post_to_slack(grok_text: str, citations: list, rankings_text: str = "", watchlist_blocks: list = None, strategy_text: str = "", strategy_100k_text: str = "", bubble_text: str = "", accounts_text: str = "", accounts_citations: list = None, news_digest_text: str = "", radar_text: str = "") -> None:
     date_str = datetime.now().strftime("%Y/%m/%d")
     blocks = [
         {
@@ -29,6 +29,22 @@ def post_to_slack(grok_text: str, citations: list, rankings_text: str = "", watc
             {"type": "section", "text": {"type": "mrkdwn", "text": "*📊 国内サイト 値上がりランキング*"}},
             {"type": "section", "text": {"type": "mrkdwn", "text": rankings_text}},
         ]
+
+    if news_digest_text:
+        blocks += [
+            {"type": "divider"},
+            {"type": "section", "text": {"type": "mrkdwn", "text": "*📰 注目銘柄の材料ダイジェスト（株探）*"}},
+        ]
+        for chunk in _chunk_mrkdwn(news_digest_text, 2900):
+            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": chunk}})
+
+    if radar_text:
+        blocks += [
+            {"type": "divider"},
+            {"type": "section", "text": {"type": "mrkdwn", "text": "*🔎 有望株レーダー（テーマ早期検知）*"}},
+        ]
+        for chunk in _chunk_mrkdwn(radar_text, 2900):
+            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": chunk}})
 
     if strategy_text:
         blocks += [
@@ -49,6 +65,22 @@ def post_to_slack(grok_text: str, citations: list, rankings_text: str = "", watc
         # Slack section は 3000 文字制限。Grok 出力は通常 2000 字程度だが念のため分割
         for chunk in _chunk_mrkdwn(bubble_text, 2900):
             blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": chunk}})
+
+    if accounts_text:
+        blocks += [
+            {"type": "divider"},
+            {"type": "section", "text": {"type": "mrkdwn", "text": "*👀 注視アカウントの株式関連投稿*"}},
+        ]
+        for chunk in _chunk_mrkdwn(accounts_text, 2900):
+            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": chunk}})
+        if accounts_citations:
+            links = " ｜ ".join(
+                f"<{c.get('url') or c.get('uri', '')}|{c.get('title', 'X投稿')}>"
+                for c in accounts_citations[:5]
+                if c.get("url") or c.get("uri")
+            )
+            if links:
+                blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": links}]})
 
     if watchlist_blocks:
         blocks += [{"type": "divider"}] + watchlist_blocks
