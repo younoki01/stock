@@ -2,7 +2,9 @@ name: Daily Hot Stock Alert
 
 on:
   schedule:
-    - cron: "30 22 * * *"  # 07:30 JST 起動 → ジョブ完了で約08:00 JST 到着 (UTC+9)
+    # 21:20 UTC = 06:20 JST 起動。GitHub Actions のキュー遅延(実測~1h40)＋ジョブ実行時間を
+    # 見込んで前倒しし、08:00 JST 前後の到着を狙う。GHAの遅延は変動するため厳密な定刻保証は不可。
+    - cron: "20 21 * * *"
   workflow_dispatch:        # 手動実行ボタン
 
 jobs:
