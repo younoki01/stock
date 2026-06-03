@@ -8,6 +8,8 @@ import re
 import requests
 from datetime import datetime, timedelta
 
+from src import usage_log
+
 API_URL = "https://api.x.ai/v1/responses"
 DEFAULT_MODEL = "grok-3"
 
@@ -120,6 +122,7 @@ def evaluate_bubble(hot_stocks_text: str, rankings_text: str, model: str = DEFAU
     )
     response.raise_for_status()
     data = response.json()
+    usage_log.record("bubble", model, data)
 
     text = _to_slack_mrkdwn(_extract_text(data))
 

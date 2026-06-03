@@ -2,6 +2,8 @@ import os
 import requests
 from datetime import datetime, timedelta
 
+from src import usage_log
+
 API_URL = "https://api.x.ai/v1/responses"
 DEFAULT_MODEL = "grok-3"
 
@@ -48,6 +50,7 @@ def analyze_stock(code: str, days_back: int = 3, model: str = DEFAULT_MODEL) -> 
     )
     response.raise_for_status()
     data = response.json()
+    usage_log.record("analyzer", model, data)
 
     text = _extract_text(data)
     citations = data.get("citations", [])

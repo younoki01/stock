@@ -8,10 +8,11 @@ import re
 import requests
 from datetime import datetime
 
+from src import usage_log
 from src.scrapers.kabutan_news import fetch as fetch_news
 
 API_URL = "https://api.x.ai/v1/responses"
-DEFAULT_MODEL = "grok-3"
+DEFAULT_MODEL = "grok-3-mini"  # 要約のみ・Live Search不使用→miniで十分
 CODE_RE = re.compile(r"^[0-9][0-9A-Z]{3,4}$")
 
 DIGEST_PROMPT_TEMPLATE = """
@@ -87,6 +88,7 @@ def generate_digest(codes: list[str], per_stock: int = 6, model: str = DEFAULT_M
     )
     response.raise_for_status()
     data = response.json()
+    usage_log.record("news_digest", model, data)
 
     return {
         "timestamp": datetime.now().isoformat(),

@@ -18,6 +18,7 @@ from pathlib import Path
 
 import requests
 
+from src import usage_log
 from src.scrapers import trendforce
 from src.scrapers.kabutan_detail import fetch as fetch_kabutan_detail
 
@@ -113,7 +114,7 @@ def generate_radar(hot_stocks_text: str, rankings_text: str, news_by_code: dict,
         hot_stocks_text=hot_stocks_text or "（なし）",
         news_block=news_block or "（なし）",
         rankings_text=rankings_text or "（なし）",
-    ))
+    ), label="radar_extract")
     themes, cand_codes = _parse_extract(extract_text)
 
     # 3. 候補の裏付け（株探）
@@ -129,7 +130,7 @@ def generate_radar(hot_stocks_text: str, rankings_text: str, news_by_code: dict,
         themes_block=themes_block,
         enriched_block=enriched_block,
         feedback_block=feedback_block,
-    )))
+    ), label="radar_score"))
 
     # 5. L1: テーマの新規/強化を検出して見出しに付与
     headline = _theme_delta_headline(themes)
@@ -358,7 +359,7 @@ def _summarize_feedback() -> str:
 
 # ---- LLM 共通 ----
 
-def _call_llm(api_key: str, model: str, prompt: str) -> str:
+def _call_llm(api_key: str, model: str, prompt: str, label: str = "radar") -> str:
     payload = {"model": model, "input": [{"role": "user", "content": prompt}]}  # tools 無し
     response = requests.post(
         API_URL,
@@ -367,7 +368,9 @@ def _call_llm(api_key: str, model: str, prompt: str) -> str:
         timeout=90,
     )
     response.raise_for_status()
-    return _extract_text(response.json())
+    data = response.json()
+    usage_log.record(label, model, data)
+    return _extract_text(data)
 
 
 def _to_slack_mrkdwn(text: str) -> str:

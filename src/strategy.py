@@ -2,8 +2,10 @@ import os
 import requests
 from datetime import datetime
 
+from src import usage_log
+
 API_URL = "https://api.x.ai/v1/responses"
-DEFAULT_MODEL = "grok-3"
+DEFAULT_MODEL = "grok-3-mini"  # Live Search不使用の純トークン処理→安価なminiで十分
 
 STRATEGY_PROMPT_TEMPLATE = """
 以下は本日（{today}）の株式市場分析データです。
@@ -93,6 +95,7 @@ def generate_strategy(hot_stocks_text: str, rankings_text: str, budget: int = 1_
     )
     response.raise_for_status()
     data = response.json()
+    usage_log.record("strategy", model, data)
 
     text = _extract_text(data)
 
