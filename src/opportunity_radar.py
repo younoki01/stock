@@ -271,10 +271,12 @@ def _theme_delta_headline(themes: list[dict]) -> str:
 
 # ---- L2: ピックログ＆フィードバック ----
 
-def _parse_price(s: str):
-    if not s:
+def _parse_price(s):
+    if s is None or s == "":
         return None
-    m = re.search(r"[0-9][0-9,]*\.?[0-9]*", s.replace(",", ""))
+    if isinstance(s, (int, float)):  # 価格が数値(yfinance由来)の場合
+        return float(s) or None
+    m = re.search(r"[0-9][0-9,]*\.?[0-9]*", str(s).replace(",", ""))
     try:
         return float(m.group(0)) if m else None
     except Exception:

@@ -8,5 +8,6 @@ venv/
 radar_state.json
 picks_log.json
 stock_history.db
+bot_state.json
 logs/
 tmp_*.py

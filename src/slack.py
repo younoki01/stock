@@ -108,6 +108,14 @@ def post_to_slack(grok_text: str, citations: list, rankings_text: str = "", watc
     _webhook_post(blocks)
 
 
+def post_alert(header: str, body: str) -> None:
+    """BOT用の軽量アラートを投稿する（日次レポートとは別の単発通知）。"""
+    blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": f"*{header}*"}}]
+    for chunk in _chunk_mrkdwn(body, 2900):
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": chunk}})
+    _webhook_post(blocks)
+
+
 def post_stock_analysis(detail: dict, result: dict) -> None:
     """個別銘柄分析を単体でSlackに投稿"""
     blocks = _build_analysis_blocks(detail, result)

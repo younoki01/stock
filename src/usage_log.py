@@ -54,6 +54,22 @@ def record(label: str, model: str, data: dict) -> dict:
     return entry
 
 
+def today_cost() -> float:
+    """本日(JST)の推定コスト合計(USD)。BOTの予算ガード用。"""
+    if not LOG_PATH.exists():
+        return 0.0
+    today = datetime.now(JST).strftime("%Y-%m-%d")
+    total = 0.0
+    for line in LOG_PATH.read_text(encoding="utf-8").splitlines():
+        try:
+            r = json.loads(line)
+        except Exception:
+            continue
+        if r.get("ts", "").startswith(today):
+            total += r.get("cost_usd_est") or 0.0
+    return round(total, 4)
+
+
 def summarize() -> str:
     if not LOG_PATH.exists():
         return "usage.jsonl がありません（まだ記録なし）"
